@@ -1,12 +1,8 @@
 package Game_2048;
 
 import javafx.util.Pair;
-import sun.lwawt.macosx.CSystemTray;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 enum Direction {
     UP(0), DOWN(1), LEFT(2), RIGHT(3), NONE(4);
@@ -85,6 +81,142 @@ class Tile {
     }
 }
 
+interface ActionHandler{
+    void handle(BoardGame boardGame);
+}
+
+
+class UpDirectionActionHandler implements ActionHandler {
+
+    @Override
+    public void handle(BoardGame boardGame) {
+        Game_2048 game_2048 = (Game_2048) boardGame;
+        Tile[][] board = game_2048.getBoard();
+        for(int j=0 ; j<game_2048.getCol() ; j++){
+            int mergeIndex = 0;
+            for(int i = 1 ; i < game_2048.getRow() ; i++){
+                if(board[i][j].value == 0) continue;
+                if(board[i][j].value == board[mergeIndex][j].value){
+                    board[mergeIndex][j].value = board[mergeIndex][j].value * 2;
+                    game_2048.setMaxGameCount(Math.max(game_2048.getMaxGameCount(), board[mergeIndex][j].value));
+                    board[i][j].value = 0;
+                    mergeIndex++;
+                }
+                else{
+                    if(board[mergeIndex][j].value != 0)
+                        mergeIndex++;
+                    board[mergeIndex][j].value = board[i][j].value;
+                    if(i!=mergeIndex)
+                        board[i][j].value = 0;
+                }
+            }
+        }
+        
+    }
+}
+
+class DownDirectionActionHandler implements ActionHandler {
+
+    @Override
+    public void handle(BoardGame boardGame) {
+        Game_2048 game_2048 = (Game_2048) boardGame;
+        Tile[][] board = game_2048.getBoard();
+        for(int j=0 ; j<game_2048.getCol() ; j++){
+            int mergeIndex = game_2048.getRow()-1;
+            for(int i = game_2048.getRow()-2 ; i >= 0 ; i--){
+                if(board[i][j].value == 0) continue;
+                if(board[i][j].value == board[mergeIndex][j].value){
+                    board[mergeIndex][j].value = board[mergeIndex][j].value * 2;
+                    game_2048.setMaxGameCount(Math.max(game_2048.getMaxGameCount(), board[mergeIndex][j].value));
+                    board[i][j].value = 0;
+                    mergeIndex--;
+                }
+                else{
+                    if(board[mergeIndex][j].value != 0)
+                        mergeIndex--;
+                    board[mergeIndex][j].value = board[i][j].value;
+                    if(i!=mergeIndex)
+                        board[i][j].value = 0;
+                }
+            }
+        }
+        
+    }
+}
+
+class LeftDirectionActionHandler implements ActionHandler {
+    @Override
+    public void handle(BoardGame boardGame) {
+        Game_2048 game_2048 = (Game_2048) boardGame;
+        Tile[][] board = game_2048.getBoard();
+        for(int i=0 ; i<game_2048.getRow() ; i++){
+            int mergeIndex = 0;
+            for(int j = 1 ; j < game_2048.getCol() ; j++){
+                if(board[i][j].value == 0) continue;
+                if(board[i][j].value == board[i][mergeIndex].value){
+                    board[i][mergeIndex].value = board[i][mergeIndex].value * 2;
+                    game_2048.setMaxGameCount(Math.max(game_2048.getMaxGameCount(), board[mergeIndex][j].value));
+                    board[i][j].value = 0;
+                    mergeIndex++;
+                }
+                else{
+                    if(board[i][mergeIndex].value != 0)
+                        mergeIndex++;
+                    board[i][mergeIndex].value = board[i][j].value;
+                    if(j!=mergeIndex)
+                        board[i][j].value = 0;
+                }
+            }
+        }
+        
+    }
+}
+
+class RightDirectionActionHandler implements ActionHandler {
+
+    @Override
+    public void handle(BoardGame boardGame) {
+        Game_2048 game_2048 = (Game_2048) boardGame;
+        Tile[][] board = game_2048.getBoard();
+        for(int i=0 ; i<game_2048.getRow() ; i++){
+            int mergeIndex = game_2048.getCol() - 1;
+            for(int j = game_2048.getCol() - 2 ; j >=0 ; j--){
+                if(board[i][j].value == 0) continue;
+                if(board[i][j].value == board[i][mergeIndex].value){
+                    board[i][mergeIndex].value = board[i][mergeIndex].value * 2;
+                    game_2048.setMaxGameCount(Math.max(game_2048.getMaxGameCount(), board[mergeIndex][j].value));
+                    board[i][j].value = 0;
+                    mergeIndex--;
+                }
+                else{
+                    if(board[i][mergeIndex].value != 0)
+                        mergeIndex--;
+                    board[i][mergeIndex].value = board[i][j].value;
+                    if(j!=mergeIndex)
+                        board[i][j].value = 0;
+                }
+            }
+        }
+    }
+}
+
+class ActionHandlerManager {
+
+    static Map<Direction, ActionHandler> map = new HashMap<>();
+
+    static {
+        map.put(Direction.UP, new UpDirectionActionHandler());
+        map.put(Direction.DOWN, new DownDirectionActionHandler());
+        map.put(Direction.LEFT, new LeftDirectionActionHandler());
+        map.put(Direction.RIGHT, new RightDirectionActionHandler());
+    }
+
+    void handle(BoardGame boardGame, Move move){
+        map.get(move.getDirection()).handle(boardGame);
+    }
+
+}
+
 
 interface BoardGame {
     int defaultRowSize = 4;
@@ -92,7 +224,7 @@ interface BoardGame {
 
     void resetBoard();
 
-    boolean move(Move move);
+    boolean move(ActionHandlerManager actionHandlerManager, Move move);
 
     void printBoard();
 
@@ -135,94 +267,8 @@ class Game_2048 implements BoardGame{
 
      */
     @Override
-    public boolean move(Move move) {
-        switch (move.getDirection()){
-            case UP:
-                for(int j=0 ; j<this.col ; j++){
-                    int mergeIndex = 0;
-                    for(int i = 1 ; i < this.row ; i++){
-                        if(board[i][j].value == 0) continue;
-                        if(board[i][j].value == board[mergeIndex][j].value){
-                            board[mergeIndex][j].value = board[mergeIndex][j].value * 2;
-                            this.maxGameCount = Math.max(this.maxGameCount, board[mergeIndex][j].value);
-                            board[i][j].value = 0;
-                            mergeIndex++;
-                        }
-                        else{
-                            if(board[mergeIndex][j].value != 0)
-                                mergeIndex++;
-                            board[mergeIndex][j].value = board[i][j].value;
-                            if(i!=mergeIndex)
-                                board[i][j].value = 0;
-                        }
-                    }
-                }
-                break;
-            case DOWN:
-                for(int j=0 ; j<this.col ; j++){
-                    int mergeIndex = this.row-1;
-                    for(int i = this.row-2 ; i >= 0 ; i--){
-                        if(board[i][j].value == 0) continue;
-                        if(board[i][j].value == board[mergeIndex][j].value){
-                            board[mergeIndex][j].value = board[mergeIndex][j].value * 2;
-                            this.maxGameCount = Math.max(this.maxGameCount, board[mergeIndex][j].value);
-                            board[i][j].value = 0;
-                            mergeIndex--;
-                        }
-                        else{
-                            if(board[mergeIndex][j].value != 0)
-                                mergeIndex--;
-                            board[mergeIndex][j].value = board[i][j].value;
-                            if(i!=mergeIndex)
-                                board[i][j].value = 0;
-                        }
-                    }
-                }
-                break;
-            case LEFT:
-                for(int i=0 ; i<this.row ; i++){
-                    int mergeIndex = 0;
-                    for(int j = 1 ; j < this.col ; j++){
-                        if(board[i][j].value == 0) continue;
-                        if(board[i][j].value == board[i][mergeIndex].value){
-                            board[i][mergeIndex].value = board[i][mergeIndex].value * 2;
-                            this.maxGameCount = Math.max(this.maxGameCount, board[mergeIndex][j].value);
-                            board[i][j].value = 0;
-                            mergeIndex++;
-                        }
-                        else{
-                            if(board[i][mergeIndex].value != 0)
-                                mergeIndex++;
-                            board[i][mergeIndex].value = board[i][j].value;
-                            if(j!=mergeIndex)
-                                board[i][j].value = 0;
-                        }
-                    }
-                }
-                break;
-            case RIGHT:
-                for(int i=0 ; i<this.row ; i++){
-                    int mergeIndex = this.col - 1;
-                    for(int j = this.col - 2 ; j >=0 ; j--){
-                        if(board[i][j].value == 0) continue;
-                        if(board[i][j].value == board[i][mergeIndex].value){
-                            board[i][mergeIndex].value = board[i][mergeIndex].value * 2;
-                            this.maxGameCount = Math.max(this.maxGameCount, board[mergeIndex][j].value);
-                            board[i][j].value = 0;
-                            mergeIndex--;
-                        }
-                        else{
-                            if(board[i][mergeIndex].value != 0)
-                                mergeIndex--;
-                            board[i][mergeIndex].value = board[i][j].value;
-                            if(j!=mergeIndex)
-                                board[i][j].value = 0;
-                        }
-                    }
-                }
-                break;
-        }
-
+    public boolean move(ActionHandlerManager actionHandlerManager, Move move) {
+        actionHandlerManager.handle(this, move);
         return this.fillRandomAvailableSpotWithTwo();
     }
 
@@ -258,16 +304,53 @@ class Game_2048 implements BoardGame{
         return false;
     }
 
+    public Tile[][] getBoard() {
+        return board;
+    }
+
+    public void setBoard(Tile[][] board) {
+        this.board = board;
+    }
+
+    public int getRow() {
+        return row;
+    }
+
+    public void setRow(int row) {
+        this.row = row;
+    }
+
+    public int getCol() {
+        return col;
+    }
+
+    public void setCol(int col) {
+        this.col = col;
+    }
+
+    public int getWinningCount() {
+        return winningCount;
+    }
+
+    public int getMaxGameCount() {
+        return maxGameCount;
+    }
+
+    public void setMaxGameCount(int maxGameCount) {
+        this.maxGameCount = maxGameCount;
+    }
 }
 
 class GameManager {
+
+    ActionHandlerManager actionHandlerManager = new ActionHandlerManager();
 
     public void resetGame(BoardGame game){
         game.resetBoard();
     }
 
     public boolean move(ActionParameter actionParameter, BoardGame game){
-        return game.move(actionParameter.getMove());
+        return game.move(actionHandlerManager, actionParameter.getMove());
     }
 
     public void printBoard(BoardGame game) {
